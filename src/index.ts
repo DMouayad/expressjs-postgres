@@ -1,23 +1,20 @@
-import bodyParser from "body-parser";
-import express from "express";
-import pg from "pg";
+import Redis from "ioredis";
+import { Socket } from "socket.io";
+require('dotenv').config();
 
-// Connect to the database using the DATABASE_URL environment
-//   variable injected by Railway
-const pool = new pg.Pool();
+var app = require('express')();
+var server = require('http').Server(app);
 
-const app = express();
-const port = process.env.PORT || 3333;
+var io = require('socket.io')(server);
+const redis: Redis = require("./helpers/init_redis")(io);
 
-app.use(bodyParser.json());
-app.use(bodyParser.raw({ type: "application/vnd.custom-type" }));
-app.use(bodyParser.text({ type: "text/html" }));
+const registerUserHandlers = require("./handlers/user_handler");
+const onConnection = (socket: Socket) => {
+    registerUserHandlers(socket, redis);
+};
 
-app.get("/", async (req, res) => {
-  const { rows } = await pool.query("SELECT NOW()");
-  res.send(`Hello, World! The time from the DB is ${rows[0].now}`);
-});
-
-app.listen(port, () => {
-  console.log(`Example app listening at http://localhost:${port}`);
+io.on('connection', onConnection);
+var broadcastPort = process.env.BROADCAST_PORT;
+server.listen(broadcastPort, function () {
+    console.log('Socket server is running.');
 });
